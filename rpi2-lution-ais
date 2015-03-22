@@ -1,10 +1,11 @@
 # !/bin/bash
 #
-# rpi2-lution-ais (version 0.1- 22nd March 2015)
+# rpi2-lution-ais (version 0.1 - 22nd March 2015)
 #
-# Written by Carl Duff for Evo/Lution Linux
-# Modified for install on the Raspberry Pi 2 (ssturrock)
+# Written by Carl Duff 
 # 
+# Adpated for Raspberry Pi by ssturrock
+#
 # Some code has been used or adapted from the Arch Installation Script (AIS)
 # and Arch Ultimate Installer (AUI) written by helmuthdu, the Antergos 
 # CLI installer written by Alex Filgueira, and the Manjaro 0.8 installer
@@ -27,7 +28,7 @@
 ANSWER="/tmp/.lution"
 
 # Save retyping
-VERSION="Lution-AIS 0.4.17b (16-Mar-2015)"
+VERSION="rpi2-lution-ais-0.1 (22nd March 2015)"
 
 # Installation
 KDE_INSTALLED=0      		# Has KDE been installed? Used for display manager option
@@ -46,7 +47,7 @@ SUBZONE=""            		# For time
 LOCALE="en_US.UTF-8"  		# System locale. Default is "en_US.UTF-8"
 SHOW_ONCE=0           		# Show de_wm information only once
 
-# Architecture
+# Menu
 HIGHLIGHT=0           		# Highlight items for Main Menu
 HIGHLIGHT_SUB=0	    		# Highlight items for submenus
 SUB_MENU=""           		# Submenu to be highlighted
