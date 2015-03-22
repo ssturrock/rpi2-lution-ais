@@ -826,6 +826,17 @@ test() {
 
 }
 
+# If there is an error, display it, clear the log and then go back to the main menu (no point in continuing).
+check_for_error() {
+
+ if [[ $? -eq 1 ]] && [[ $(cat /tmp/.errlog | grep -i "error") != "" ]]; then
+    dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_ErrTitle" --msgbox "$(cat /tmp/.errlog)" 0 0
+    echo "" > /tmp/.errlog
+    main_menu_online
+ fi
+   
+}
+
 main_menu_online() {
 	
 	if [[ $HIGHLIGHT != 7 ]]; then
@@ -846,11 +857,9 @@ main_menu_online() {
     
     # Depending on the answer, first check whether partition(s) are mounted and whether base has been installed
     if [[ $(cat ${ANSWER}) -eq 2 ]]; then
-       check_mount
     fi
 
     if [[ $(cat ${ANSWER}) -ge 3 ]] && [[ $(cat ${ANSWER}) -le 7 ]]; then
-       check_mount
        check_base
     fi
     
