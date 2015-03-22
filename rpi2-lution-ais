@@ -1,11 +1,10 @@
-
 # !/bin/bash
 #
 # rpi2-lution-ais (version 0.1 - 22nd March 2015)
 #
-# Written by Carl Duff 
-# 
-# Adpated for Raspberry Pi by ssturrock
+# Modifed version of Carl Duffs lution-ais installer for the Raspberry PI
+#
+# Source : https://github.com/CarlDuff/lution-ais/blob/master/lution-ais
 #
 # Some code has been used or adapted from the Arch Installation Script (AIS)
 # and Arch Ultimate Installer (AUI) written by helmuthdu, the Antergos 
