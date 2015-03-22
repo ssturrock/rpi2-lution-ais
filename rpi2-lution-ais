@@ -18,9 +18,9 @@
 
 
 ######################################################################
-##																	##
-##                   Installer Variables							##
-##																	##
+##																	                                ##
+##                   Installer Variables							              ##
+##																	                                ##
 ######################################################################
 
 # Create a temporary file to store menu selections
@@ -59,9 +59,9 @@ FILE=""                     # Which file is to be opened?
 FILE2=""                    # Some configs use two files. Not using an array.
 
 ######################################################################
-##																	##
-##                        Core Functions							##
-##																	##
+##																	                                ##
+##                        Core Functions							              ##
+##																	                                ##
 ######################################################################
 
 # Add locale on-the-fly and sets source translation file for installer
@@ -249,7 +249,7 @@ set_hw_clock() {
 	"2" "$_HwLocal" 2>${ANSWER}	
 
     case $(cat ${ANSWER}) in
-        "1") hwclock --systohc --utc" 2>/tmp/.errlog
+        "1") hwclock --systohc --utc 2>/tmp/.errlog
              ;;
         "2") hwclock --systohc --localtime 2>/tmp/.errlog
              ;;
@@ -263,7 +263,7 @@ set_hw_clock() {
 # locale array generation code adapted from the Manjaro 0.8 installer
 set_locale() {
 
-  LOCALES=""	
+  LOCALES=""  
   for i in $(cat /etc/locale.gen | grep -v "#  " | sed 's/#//g' | sed 's/ UTF-8//g' | grep .UTF-8); do
       LOCALES="${LOCALES} ${i} -"
   done
@@ -276,6 +276,7 @@ set_locale() {
   locale-gen >/dev/null 2>>/tmp/.errlog
   check_for_error
 }
+
 
 # virtual console keymap
 set_keymap() { 
