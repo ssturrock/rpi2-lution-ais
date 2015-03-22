@@ -1,1 +1,898 @@
-echo 'Testing'
+# !/bin/bash
+#
+# Lution-AIS installer (version 0.4.17b - 16th March 2015)
+#
+# Written by Carl Duff for Evo/Lution Linux
+#
+# Some code has been used or adapted from the Arch Installation Script (AIS)
+# and Arch Ultimate Installer (AUI) written by helmuthdu, the Antergos 
+# CLI installer written by Alex Filgueira, and the Manjaro 0.8 installer
+# Written by Philip Muller.
+#
+# This program is free software, provided under the GNU General Public License
+# as published by the Free Software Foundation. So feel free to copy, distribute,
+# or modify it as you wish.
+#
+
+
+
+######################################################################
+##																	##
+##                   Installer Variables							##
+##																	##
+######################################################################
+
+# Create a temporary file to store menu selections
+ANSWER="/tmp/.lution"
+
+# Save retyping
+VERSION="Lution-AIS 0.4.17b (16-Mar-2015)"
+
+# Installation
+KDE_INSTALLED=0      		# Has KDE been installed? Used for display manager option
+PLASMA_INSTALLED=0    		# Has Plasma 5 been installed? Used for display manager option
+GNOME_INSTALLED=0    		# Has Gnome been installed? Used for display manager option
+LXDE_INSTALLED=0     		# Has LXDE been installed? Used for display manager option
+DM_INSTALLED=0       		# Has a display manager been installed?
+COMMON_INSTALLED=0   		# Has the common-packages option been taken?
+NM_INSTALLED=0       		# Has a network connection manager been installed and enabled?
+AXI_INSTALLED=0             # Have the ALSA, Xorg, and xf86-input packages been installed?
+EVOBOXFM=""           		# Which file manager has been selected for EvoBox?
+EVOBOXIB=""           		# Which Internet Browser has been selected for EvoBox?
+DM="n/a"              		# Which display manager has been installed?
+KEYMAP="us"          		# Virtual console keymap. Default is "us"
+XKBMAP="us"      	    	# X11 keyboard layout. Default is "us"
+ZONE=""               		# For time
+SUBZONE=""            		# For time
+LOCALE="en_US.UTF-8"  		# System locale. Default is "en_US.UTF-8"
+SHOW_ONCE=0           		# Show de_wm information only once
+
+# Architecture
+HIGHLIGHT=0           		# Highlight items for Main Menu
+HIGHLIGHT_SUB=0	    		# Highlight items for submenus
+SUB_MENU=""           		# Submenu to be highlighted
+
+# Language Support
+EVO_LOCALE="en_US.UTF-8"    # Default Evo Locale
+
+# Edit Files
+FILE=""                     # Which file is to be opened?
+FILE2=""                    # Some configs use two files. Not using an array.
+
+######################################################################
+##																	##
+##                        Core Functions							##
+##																	##
+######################################################################
+
+# Add locale on-the-fly and sets source translation file for installer
+select_language() {
+
+    dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title " Select Language " --menu "\nLanguage / sprache / taal / nγλώσσα / språk / lingua / idioma / язык / język / nyelv / língua" 22 30 11 \
+ 	"1" $"English" \
+ 	"2" $"Deutsch" \
+ 	"3" $"Nederlands" \
+ 	"4" $"Eλληνικά" \
+ 	"5" $"Norsk" \
+ 	"6" $"Italiano" \
+ 	"7" $"Español" \
+ 	"8" $"Русский" \
+ 	"9" $"Polski" \
+ 	"10" $"Magyar" \
+ 	"11" $"Portugese" 2>${ANSWER}
+
+	case $(cat ${ANSWER}) in
+        "1") source /root/rpi2-lution-ais/english.trans
+             EVO_LOCALE="en_US.UTF-8"
+             ;;
+        "2") source /lution-ais-master/german.trans
+             EVO_LOCALE="de_DE.UTF-8" 
+             ;;
+        "3") source /lution-ais-master/dutch.trans
+             EVO_LOCALE="nl_NL.UTF-8"
+             ;;
+        "4") source /lution-ais-master/greek.trans
+             EVO_LOCALE="el_GR.UTF-8"
+             ;;
+        "5") source /lution-ais-master/norwegian.trans
+             EVO_LOCALE="nl_NL.UTF-8"
+             ;;
+        "6") source /lution-ais-master/italian.trans
+             EVO_LOCALE="it_IT.UTF-8"
+             ;;
+        "7") source /lution-ais-master/spanish.trans
+             EVO_LOCALE="es_ES.UTF-8"
+             ;;
+        "8") source /lution-ais-master/russian.trans
+             EVO_LOCALE="ru_RU.UTF-8"
+             ;;
+        "9") source /lution-ais-master/polish.trans
+             EVO_LOCALE="pl_PL.UTF-8"
+             ;;
+       "10") source /lution-ais-master/hungarian.trans
+             EVO_LOCALE="hu_HU.UTF-8"  
+             ;;
+       "11") source /lution-ais-master/portuguese.trans
+             EVO_LOCALE="pt_PT.UTF-8"
+             ;;
+          *) exit 0
+             ;;
+    esac
+        
+    # Generate the chosen locale and set the language
+    sed -i "s/#${EVO_LOCALE}/${EVO_LOCALE}/" /etc/locale.gen
+    locale-gen >/dev/null 2>&1
+    export LANG=${EVO_LOCALE}
+
+}
+
+
+# Check user is root, and that there is an active internet connection
+# Seperated the checks into seperate "if" statements for readability.
+check_evo_requirements() {
+	
+  dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_ChkEvoTitle" --infobox "$_ChkEvoBody" 0 0
+  sleep 2
+  
+  if [[ `whoami` != "root" ]]; then
+     dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_RtFailTitle" --infobox "$_RtFailBody" 0 0
+     sleep 2
+     exit 1
+  fi
+  
+  if [[ ! $(ping -c 1 google.com) ]]; then
+     dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_ConFailTitle" --infobox "$_ConFailBody" 0 0
+     sleep 2
+     exit 1
+  fi
+  
+  # This will only be executed where neither of the above checks are true.
+  # The error log is also cleared, just in case something is there from a previous use of the installer.
+  dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_ReqMetTitle" --infobox "$_ReqMetBody" 0 0
+  sleep 2   
+  clear
+  echo "" > /tmp/.errlog
+  
+}
+
+
+# Base Configuration
+config_base_menu() {
+	
+	# Set the default PATH variable
+    arch_chroot "PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/bin/core_perl" 2>/tmp/.errlog
+	check_for_error
+	
+	if [[ $SUB_MENU != "config_base_menu" ]]; then
+	   SUB_MENU="config_base_menu"
+	   HIGHLIGHT_SUB=1
+	else
+	   if [[ $HIGHLIGHT_SUB != 7 ]]; then
+	      HIGHLIGHT_SUB=$(( HIGHLIGHT_SUB + 1 ))
+	   fi
+	fi
+
+    dialog --default-item ${HIGHLIGHT_SUB} --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_ConfBseTitle" --menu "$_ConfBseBody" 0 0 6 \
+ 	"1" "$_ConfBseHost" \
+	"2" "$_ConfBseTime" \
+	"3" "$_ConfBseHWC" \
+	"4" "$_ConfBseSysLoc" \
+	"5" "$_ConfBseVirtCon" \
+	"6" "$_Back" 2>${ANSWER}	
+	
+	HIGHLIGHT_SUB=$(cat ${ANSWER})
+	case $(cat ${ANSWER}) in
+        "1") set_hostname
+             ;;
+        "2") set_timezone
+             ;;
+        "3") set_hw_clock
+             ;;            
+        "4") set_locale
+             ;;
+        "5") set_keymap
+             ;;            
+          *) main_menu_online
+             ;;
+    esac
+    
+    config_base_menu
+
+}
+
+
+# Adapted from AIS.
+set_hostname() {
+
+   dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_HostNameTitle" --inputbox "$_HostNameBody" 0 0 "evo" 2>${ANSWER} || config_base_menu
+   HOST_NAME=$(cat ${ANSWER})
+
+   echo "$HOST_NAME" > ${MOUNTPOINT}/etc/hostname 2>/tmp/.errlog
+   check_for_error
+   sed -i "/127.0.0.1/s/$/ ${HOST_NAME}/" ${MOUNTPOINT}/etc/hosts
+   sed -i "/::1/s/$/ ${HOST_NAME}/" ${MOUNTPOINT}/etc/hosts
+}
+
+# Set Zone and Sub-Zone
+set_timezone() {
+
+    ZONE=""
+    for i in $(cat /usr/share/zoneinfo/zone.tab | awk '{print $3}' | grep "/" | sed "s/\/.*//g" | sort -ud); do
+      ZONE="$ZONE ${i} -"
+    done
+    
+     dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_TimeZTitle" --menu "$_TimeZBody" 0 0 10 ${ZONE} 2>${ANSWER} || config_base_menu
+     ZONE=$(cat ${ANSWER}) 
+    
+     SUBZONE=""
+     for i in $(cat /usr/share/zoneinfo/zone.tab | awk '{print $3}' | grep "${ZONE}/" | sed "s/${ZONE}\///g" | sort -ud); do
+        SUBZONE="$SUBZONE ${i} -"
+     done
+         
+     dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_TimeSubZTitle" --menu "$_TimeSubZBody" 0 0 11 ${SUBZONE} 2>${ANSWER} || config_base_menu
+     SUBZONE=$(cat ${ANSWER}) 
+    
+     dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --yesno "$_TimeZQ ${ZONE}/${SUBZONE} ?" 0 0 
+     
+     if [[ $? -eq 0 ]]; then
+        arch_chroot "ln -s /usr/share/zoneinfo/${ZONE}/${SUBZONE} /etc/localtime" 2>/tmp/.errlog
+        check_for_error
+     else
+        config_base_menu
+     fi
+}
+
+set_hw_clock() {
+	
+   dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_HwCTitle" \
+    --menu "$_HwCBody" 0 0 2 \
+ 	"1" "$_HwCUTC" \
+	"2" "$_HwLocal" 2>${ANSWER}	
+
+    case $(cat ${ANSWER}) in
+        "1") arch_chroot "hwclock --systohc --utc"  2>/tmp/.errlog
+             ;;
+        "2") arch_chroot "hwclock --systohc --localtime" 2>/tmp/.errlog
+             ;;
+          *) config_base_menu
+             ;;
+     esac	
+     
+     check_for_error
+}
+
+# locale array generation code adapted from the Manjaro 0.8 installer
+set_locale() {
+
+  LOCALES=""	
+  for i in $(cat /etc/locale.gen | grep -v "#  " | sed 's/#//g' | sed 's/ UTF-8//g' | grep .UTF-8); do
+      LOCALES="${LOCALES} ${i} -"
+  done
+
+  dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_LocateTitle" --menu "$_localeBody" 0 0 16 ${LOCALES} 2>${ANSWER} || config_base_menu 
+  LOCALE=$(cat ${ANSWER})
+  
+  echo "LANG=\"${LOCALE}\"" > ${MOUNTPOINT}/etc/locale.conf
+  sed -i "s/#${LOCALE}/${LOCALE}/" ${MOUNTPOINT}/etc/locale.gen 2>/tmp/.errlog
+  arch_chroot "locale-gen" >/dev/null 2>>/tmp/.errlog
+  check_for_error
+}
+
+# virtual console keymap
+set_keymap() { 
+	
+	KEYMAPS=""
+    for i in $(localectl --no-pager list-keymaps); do
+        KEYMAPS="${KEYMAPS} ${i} -"
+    done
+    
+    dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_KeymapTitle" \
+    --menu "$_KeymapBody" 20 40 16 ${KEYMAPS} 2>${ANSWER} || config_base_menu
+    KEYMAP=$(cat ${ANSWER})
+    echo "KEYMAP=$KEYMAP" > ${MOUNTPOINT}/etc/vconsole.conf 2>/tmp/.errlog
+    check_for_error
+  }
+
+# Set keymap for X11
+ set_xkbmap() {
+	 
+	XKBMAP_LIST=""
+	keymaps_xkb=("af_Afghani al_Albanian am_Armenian ara_Arabic at_German-Austria az_Azerbaijani ba_Bosnian bd_Bangla be_Belgian bg_Bulgarian br_Portuguese-Brazil bt_Dzongkha bw_Tswana by_Belarusian ca_French-Canada cd_French-DR-Congo ch_German-Switzerland cm_English-Cameroon cn_Chinese cz_Czech de_German dk_Danishee_Estonian epo_Esperanto es_Spanish et_Amharic fo_Faroese fi_Finnish fr_French gb_English-UK ge_Georgian gh_English-Ghana gn_French-Guinea gr_Greek hr_Croatian hu_Hungarian ie_Irish il_Hebrew iq_Iraqi ir_Persian is_Icelandic it_Italian jp_Japanese ke_Swahili-Kenya kg_Kyrgyz kh_Khmer-Cambodia kr_Korean kz_Kazakh la_Lao latam_Spanish-Lat-American lk_Sinhala-phonetic lt_Lithuanian lv_Latvian ma_Arabic-Morocco mao_Maori md_Moldavian me_Montenegrin mk_Macedonian ml_Bambara mm_Burmese mn_Mongolian mt_Maltese mv_Dhivehi ng_English-Nigeria nl_Dutch no_Norwegian np_Nepali ph_Filipino pk_Urdu-Pakistan pl_Polish pt_Portuguese ro_Romanian rs_Serbian ru_Russian se_Swedish si_Slovenian sk_Slovak sn_Wolof sy_Arabic-Syria th_Thai tj_Tajik tm_Turkmen tr_Turkish tw_Taiwanese tz_Swahili-Tanzania ua_Ukrainian us_English-US uz_Uzbek vn_Vietnamese za_English-S-Africa")
+    
+	for i in ${keymaps_xkb}; do
+        XKBMAP_LIST="${XKBMAP_LIST} ${i} -"
+    done
+	
+    dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_XkbmapTitle" --menu "$_XkbmapBody" 0 0 16 ${XKBMAP_LIST} 2>${ANSWER} || prep_menu
+    XKBMAP=$(cat ${ANSWER} |sed 's/_.*//')
+    echo -e "Section "\"InputClass"\"\nIdentifier "\"system-keyboard"\"\nMatchIsKeyboard "\"on"\"\nOption "\"XkbLayout"\" "\"${XKBMAP}"\"\nEndSection" > /tmp/00-keyboard.conf
+    setxkbmap $XKBMAP 2>/tmp/.errlog
+    check_for_error
+ 
+}
+
+# Needed for broadcom and other network controllers
+install_wireless_firmware() {
+    
+   
+    dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_WirelssFirmTitle" --menu "$_WirelssFirmBody" 0 0 7 \
+ 	"1" "$_SeeWirelessDev" \
+ 	"2" $"Broadcom 802.11b/g/n" \
+ 	"3" $"Realtek RTL8188CUS" \
+ 	"4" $"Realtek RTL8188EU" \
+ 	"5" $"ZyDAS ZD1211(b) 802.11a/b/g USB WLAN" \
+ 	"6" "$_All" \
+ 	"7" "$_Back" 2>${ANSWER}
+
+    case $(cat ${ANSWER}) in
+    "1") # Identify the Wireless Device 
+        lspci -k | grep -i -A 2 "network controller" > /tmp/.wireless
+        if [[ $(cat /tmp/.wireless) != "" ]]; then
+           dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_WirelessShowTitle" --textbox /tmp/.wireless 0 0
+        else
+           dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_WirelessShowTitle" --msgbox "$_WirelessErrBody" 7 30
+        fi
+        ;;
+    "2") # Broadcom
+         clear
+         pacman -S b43-fwcutter --noconfirm 2>/tmp/.errlog
+        ;;
+    "3") # Realtek RTL8188CUS
+         clear
+         pacman -S linux-raspberrypi-headers dkms-8192cu  --noconfirm 2>/tmp/.errlog
+        ;;
+    "4") # Realtek RTL8188EU
+         clear
+         pacman -S linux-raspberrypi-headers dkms-8188eu  --noconfirm 2>/tmp/.errlog
+        ;;
+    "5") # ZyDAS
+         clear
+         pacman -S zd1211-firmware  --noconfirm 2>/tmp/.errlog
+        ;;
+    "6") # All
+         clear
+         pacman -S linux-raspberrypi-headers b43-fwcutter dkms-8192cu dkms-8188eu zd1211-firmware  --noconfirm
+        ;;
+      *) config_base_menu
+        ;;
+    esac
+    
+    check_for_error
+    install_wireless_firmware
+
+}
+
+# Root and User Configuration
+config_user_menu() {
+
+	if [[ $SUB_MENU != "config_user_menu" ]]; then
+	   SUB_MENU="config_user_menu"
+	   HIGHLIGHT_SUB=1
+	else
+	   if [[ $HIGHLIGHT_SUB != 3 ]]; then
+	      HIGHLIGHT_SUB=$(( HIGHLIGHT_SUB + 1 ))
+	   fi
+	fi
+
+    dialog --default-item ${HIGHLIGHT_SUB} --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_ConfUsrTitle" --menu "$_ConfUsrBody" 0 0 3 \
+ 	"1" "$_ConfUsrRoot" \
+	"2" "$_ConfUsrNew" \
+	"3" "$_Back" 2>${ANSWER}
+	
+	HIGHLIGHT_SUB=$(cat ${ANSWER})
+    case $(cat ${ANSWER}) in
+    "1") set_root_password 
+         ;;
+    "2") create_new_user
+         ;;     
+      *) main_menu_online
+         ;;
+    esac
+    
+    config_user_menu
+}
+
+# Adapted and simplified from the Manjaro 0.8 and Antergos 2.0 installers
+set_root_password() {
+
+    dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_PassRtTitle" --clear --insecure --passwordbox "$_PassRtBody" 0 0 2> ${ANSWER} || config_user_menu
+    PASSWD=$(cat ${ANSWER})
+    
+    dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_PassRtTitle" --clear --insecure --passwordbox "$_PassRtBody2" 0 0 2> ${ANSWER} || config_user_menu
+    PASSWD2=$(cat ${ANSWER})
+    
+    if [[ $PASSWD == $PASSWD2 ]]; then 
+       echo -e "${PASSWD}\n${PASSWD}" > /tmp/.passwd
+       arch_chroot "passwd root" < /tmp/.passwd >/dev/null 2>/tmp/.errlog
+       rm /tmp/.passwd
+       check_for_error
+    else
+       dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_PassRtErrTitle" --msgbox "$_PassRtErrBody" 0 0
+       set_root_password
+    fi
+
+}
+
+# Originally adapted from the Antergos 2.0 installer
+create_new_user() {
+
+        dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_NUsrTitle" --inputbox "$_NUsrBody" 0 0 "" 2>${ANSWER} || config_user_menu
+        USER=$(cat ${ANSWER})
+        
+        # Loop while user name is blank, has spaces, or has capital letters in it.
+         while [[ ${#USER} -eq 0 ]] || [[ $USER =~ \ |\' ]] || [[ $(echo $USER | sed "s/[[:lower:]]//g") != "" ]]; do
+              dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_NUsrTitle" --inputbox "$_NUsrErrBody" 0 0 "" 2>${ANSWER} || config_user_menu
+              USER=$(cat ${ANSWER})
+        done
+        
+        # Enter password. This step will only be reached where the loop has been skipped or broken.
+        dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_PassNUsrTitle" --clear --insecure --passwordbox "$_PassNUsrBody $USER\n\n" 0 0 2> ${ANSWER} || config_user_menu
+        PASSWD=$(cat ${ANSWER}) 
+    
+        dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_PassNUsrTitle" --clear --insecure --passwordbox "$_PassNUsrBody2 $USER\n\n" 0 0 2> ${ANSWER} || config_user_menu
+        PASSWD2=$(cat ${ANSWER}) 
+    
+        # loop while passwords entered do not match.
+        while [[ $PASSWD != $PASSWD2 ]]; do
+              dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_PassNUsrErrTitle" --msgbox "$_PassNUsrErrBody" 0 0
+              
+              dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_PassNUsrTitle" --clear --insecure --passwordbox "$_PassNUsrBody $USER\n\n" 0 0 2> ${ANSWER} || config_user_menu
+              PASSWD=$(cat ${ANSWER}) 
+    
+              dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_PassNUsrTitle" --clear --insecure --passwordbox "$_PassNUsrBody2 $USER\n\n" 0 0 2> ${ANSWER} || config_user_menu
+              PASSWD2=$(cat ${ANSWER}) 
+        done      
+    
+        # create new user. This step will only be reached where the password loop has been skipped or broken.  
+        dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_NUsrSetTitle" --infobox "$_NUsrSetBody" 0 0
+        sleep 2
+        # Create the user, set password, then remove temporary password file
+        arch_chroot "useradd ${USER} -m -g users -G wheel,storage,power,network,video,audio,lp -s /bin/bash" 2>/tmp/.errlog
+        check_for_error
+        echo -e "${PASSWD}\n${PASSWD}" > /tmp/.passwd
+        arch_chroot "passwd ${USER}" < /tmp/.passwd >/dev/null 2>/tmp/.errlog
+        rm /tmp/.passwd
+        check_for_error
+        # Set up basic configuration files and permissions for user
+        cp /etc/skel/.bashrc /home/${USER}
+        chown -R ${USER}:users /home/${USER}
+        sed -i '/%wheel ALL=(ALL) ALL/s/^#//' /etc/sudoers
+      
+}
+
+install_desktop_menu() {
+
+	if [[ $SUB_MENU != "install_deskop_menu" ]]; then
+	   SUB_MENU="install_deskop_menu"
+	   HIGHLIGHT_SUB=1
+	else
+	   if [[ $HIGHLIGHT_SUB != 5 ]]; then
+	      HIGHLIGHT_SUB=$(( HIGHLIGHT_SUB + 1 ))
+	   fi
+	fi
+
+    dialog --default-item ${HIGHLIGHT_SUB} --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_InstDEMenuTitle" --menu "$_InstDEMenuBody" 0 0 5 \
+ 	"1" "$_InstDEMenuGISD" \
+	"2" "$_InstDEMenuDE" \
+	"3" "$_InstDEMenuNM" \
+	"4" "$_InstDEMenuDM" \
+	"5" "$_Back" 2>${ANSWER}
+	
+	HIGHLIGHT_SUB=$(cat ${ANSWER})
+	case $(cat ${ANSWER}) in
+        "1") [[ AXI_INSTALLED -eq 0 ]] && install_alsa_xorg_input
+             ;;
+        "2") install_de_wm
+             ;;
+        "3") install_nm
+             ;;
+        "4") install_dm
+             ;;            
+          *) main_menu_online
+             ;;
+    esac
+    
+    install_desktop_menu
+	
+}
+
+# Install alsa, xorg and input drivers. Also copy the xkbmap configuration file created earlier to the installed system
+# This will run only once.
+install_alsa_xorg_input() {
+
+     dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_AXITitle" --msgbox "$_AXIBody" 0 0
+     clear	
+     pacman -S  xf86-video-fbdev xorg-xinit xorg-server xorg-server-utils xf86-input-synaptics xf86-input-keyboard xf86-input-mouse --noconfirm 2>/tmp/.errlog
+     check_for_error
+     
+     # copy the keyboard configuration file, if generated
+     [[ -e /tmp/00-keyboard.conf ]] && cp /tmp/00-keyboard.conf /etc/X11/xorg.conf.d/00-keyboard.conf
+  
+     # now copy across .xinitrc for all user accounts
+     user_list=$(ls /home/ | sed "s/lost+found//")
+	 for i in ${user_list[@]}; do
+	     cp -f /etc/skel/.xinitrc /home/$i
+	     arch_chroot "chown -R ${i}:users /home/${i}"
+     done
+     
+     AXI_INSTALLED=1
+
+}
+
+install_de_wm() {
+
+   # Only show this information box once
+   if [[ $SHOW_ONCE -eq 0 ]]; then
+      dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_DEInfoTitle" --msgbox "$_DEInfoBody" 0 0
+      SHOW_ONCE=1
+   fi
+   
+	dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_InstDETitle" \
+    --menu "$_InstDEBody" 0 0 8 \
+ 	"1" $"Cinnamon" \
+	"2" $"Enlightenment" \
+	"3" $"Gnome-Shell (minimal)" \
+	"4" $"Gnome" \
+	"5" $"Gnome + Extras" \
+    "6" $"KDE4 Base (minimal)" \
+    "7" $"KDE4" \
+    "8" $"LXDE" \
+    "9" $"MATE" \
+    "10" $"MATE + Extras" \
+    "11" $"Xfce" \
+    "12" $"Xfce + extras" \
+    "13" $"Awesome WM" \
+    "14" $"Fluxbox WM" \
+	"15" $"i3 WM" \
+    "16" $"Ice WM" \
+    "17" $"Openbox WM" \
+    "18" $"Pek WM" \
+    "19" $"WindowMaker WM" 2>${ANSWER}
+
+   case $(cat ${ANSWER}) in
+        "1") # Cinnamon
+             clear
+             pacman -S cinnamon --noconfirm 2>/tmp/.errlog
+             ;;
+        "2") # Enlightement
+             clear
+             pacman -S enlightenment terminology polkit-gnome --noconfirm 2>/tmp/.errlog
+             ;;
+        "3") # Gnome-Shell
+             clear
+             pacman -S gnome-shell gdm --noconfirm 2>/tmp/.errlog
+             GNOME_INSTALLED=1
+             ;;
+        "4") # Gnome
+             clear
+             pacman -S gnome rp-pppoe --noconfirm 2>/tmp/.errlog
+
+             if [[ $NM_INSTALLED -eq 0 ]]; then         
+                systemctl enable NetworkManager.service && systemctl enable NetworkManager-dispatcher.service 2>>/tmp/.errlog
+                NM_INSTALLED=1
+             fi
+           
+             GNOME_INSTALLED=1
+             ;;            
+        "5") # Gnome + Extras
+             clear
+             pacman -S gnome gnome-extra rp-pppoe --noconfirm 2>/tmp/.errlog
+
+             if [[ $NM_INSTALLED -eq 0 ]]; then         
+                systemctl enable NetworkManager.service && systemctl enable NetworkManager-dispatcher.service 2>>/tmp/.errlog
+                NM_INSTALLED=1
+             fi
+           
+             GNOME_INSTALLED=1
+             ;;
+        "6") # KDE4 BASE
+             clear
+             pacman -S kdebase-workspace kdeplasma-applets-plasma-nm xdg-utils rp-pppoe --noconfirm 2>/tmp/.errlog
+             KDE_INSTALLED=1
+             ;;
+        "7") # KDE4 
+             clear
+             pacman -S kde kdeplasma-applets-plasma-nm xdg-user-dirs xdg-utils rp-pppoe --noconfirm 2>/tmp/.errlog
+
+             if [[ $NM_INSTALLED -eq 0 ]]; then          
+                systemctl enable NetworkManager.service && systemctl enable NetworkManager-dispatcher.service 2>>/tmp/.errlog
+                NM_INSTALLED=1
+             fi
+               
+             KDE_INSTALLED=1
+             ;;
+         "8") # LXDE
+              clear
+              pacman -S lxde --noconfirm 2>/tmp/.errlog
+              LXDE_INSTALLED=1
+             ;;
+         "9") # MATE
+              clear
+              pacman -S mate --noconfirm 2>/tmp/.errlog
+             ;;
+        "10") # MATE + Extras
+               clear
+               pacman -S mate mate-extra --noconfirm 2>/tmp/.errlog
+             ;;                 
+        "11") # Xfce
+              clear
+              pacman -S xfce4 polkit-gnome --noconfirm 2>/tmp/.errlog
+             ;;            
+        "12") # Xfce + Extras
+              clear
+              pacman -S xfce4 xfce4-goodies polkit-gnome --noconfirm 2>/tmp/.errlog
+             ;;
+        "13") # Awesome
+              clear
+              pacman -S awesome vicious polkit-gnome --noconfirm 2>/tmp/.errlog
+             ;;
+        "14") #Fluxbox
+              clear 
+              pacman -S fluxbox fbnews fluxter polkit-gnome --noconfirm 2>/tmp/.errlog
+             ;; 
+        "15") #i3
+              clear
+              pacman -S i3-wm i3lock i3status dmenu polkit-gnome --noconfirm 2>/tmp/.errlog
+             ;; 
+        "16") #IceWM
+              clear
+              pacman -S icewm icewm-themes polkit-gnome --noconfirm 2>/tmp/.errlog
+             ;; 
+        "17") #Openbox
+              clear
+              pacman -S openbox openbox-themes polkit-gnome --noconfirm 2>/tmp/.errlog
+             ;; 
+        "18") #PekWM
+              clear
+              pacman -S pekwm pekwm-themes polkit-gnome --noconfirm 2>/tmp/.errlog
+             ;;
+        "19") #WindowMaker
+             clear
+             pacman -S windowmaker polkit-gnome --noconfirm 2>/tmp/.errlog
+             ;;        
+          *) install_desktop_menu
+             ;;
+    esac  
+    
+    check_for_error
+    
+    # Offer to install common packages
+    if [[ $COMMON_INSTALLED -eq 0 ]]; then
+       dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_InstComTitle" --yesno "$_InstComBody" 0 0
+       
+       if [[ $? -eq 0 ]]; then
+          clear
+          pacman -S xterm gksu gnome-keyring polkit xdg-user-dirs xdg-utils gamin gvfs gvfs-afc gvfs-smb ttf-dejavu gnome-icon-theme python2-xdg bash-completion ntfs-3g --noconfirm 2>/tmp/.errlog
+          check_for_error
+       fi
+       
+    fi
+    
+    # Either way, the option will no longer be presented.
+    COMMON_INSTALLED=1
+
+}
+
+# Determine if LXDE, Gnome, and/or KDE has been installed, and act accordingly.
+install_dm() {
+
+ if [[ $DM_INSTALLED -eq 0 ]]; then
+	
+          if  [[ $KDE_INSTALLED -eq 1 ]] && [[ $GNOME_INSTALLED -eq 0 ]]; then
+               systemctl enable kdm.service >/dev/null 2>/tmp/.errlog
+               check_for_error
+               dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_DmKdeTitle" --msgbox "$_DmKdeBody" 0 0
+         elif  [[ $KDE_INSTALLED -eq 0 ]] && [[ $GNOME_INSTALLED -eq 1 ]]; then
+               systemctl enable gdm.service >/dev/null 2>/tmp/.errlog
+               check_for_error
+               dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_DmGdmTitle" --msgbox "$_DmGdmBody" 0 0
+         elif  [[ $KDE_INSTALLED -eq 1 ]] && [[ $GNOME_INSTALLED -eq 1 ]]; then
+         
+               dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_DmChTitle" \
+               --menu "$_DmChBody" 12 45 2 \
+ 	           "1" $"GDM (Gnome)" \
+	           "2" $"KDM (KDE)" 2>${ANSWER}	
+	
+	          case $(cat ${ANSWER}) in
+              "1") systemctl enable gdm.service >/dev/null 2>/tmp/.errlog
+                   DM="GDM"
+                ;;
+              "2") systemctl enable kdm.service >/dev/null 2>/tmp/.errlog
+                   DM="KDM"
+                ;;
+                *) install_desktop_menu
+                ;;
+              esac 
+              
+              check_for_error
+              dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title " $DM $_DmDoneTitle" --msgbox "\n$DM $_DMDoneBody" 0 0
+              
+         elif [[ $LXDE_INSTALLED -eq 1 ]]; then
+              systemctl enable lxdm.service >/dev/null 2>/tmp/.errlog
+              check_for_error
+              dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_DmLxdmTitle" --msgbox "$_DmLxdmBody" 0 0
+              DM="LXDM"
+         else 
+               dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_DmChoiceTitle" \
+               --menu "$_DmChoiceBody" 0 0 4 \
+ 	           "1" $"LXDM" \
+	           "2" $"LightDM" \
+	           "3" $"SDDM" \
+	           "4" $"SLiM" 2>${ANSWER}	
+	
+	          case $(cat ${ANSWER}) in
+              "1") # LXDM
+                   clear
+                   pacman -S lxdm --noconfirm 2>/tmp/.errlog
+                   systemctl enable lxdm.service >/dev/null 2>>/tmp/.errlog
+                   DM="LXDM"
+                   ;;
+              "2") # LIGHTDM
+                   clear
+                   pacman -S lightdm lightdm-gtk-greeter --noconfirm 2>/tmp/.errlog
+                   systemctl enable lightdm.service >/dev/null 2>>/tmp/.errlog
+                   DM="LightDM"
+                   ;;
+              "3") # SDDM
+                   clear
+                   pacman -S sddm --noconfirm 2>/tmp/.errlog
+                   sddm --example-config > /etc/sddm.conf
+                   systemctl enable sddm.service >/dev/null 2>>/tmp/.errlog
+                   DM="SDDM"
+                   ;;
+              "4") # SLiM
+                   clear
+                   pacman -S slim --noconfirm 2>/tmp/.errlog
+                   systemctl enable slim.service >/dev/null 2>>/tmp/.errlog
+                   DM="SLiM"
+
+                   # Amend the xinitrc file accordingly for all user accounts
+                   user_list=$(ls /home/ | sed "s/lost+found//")
+				   for i in ${user_list[@]}; do
+                       if [[ -n /home/$i/.xinitrc ]]; then
+                          cp -f /etc/skel/.xinitrc /home/$i
+	                      chown -R ${i}:users /home/${i}
+	                   fi
+                       echo 'exec $1' >> /home/$i/.xinitrc
+                   done
+                
+                   ;;                
+                *) install_desktop_menu
+                   ;;
+              esac
+              
+              check_for_error
+              dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title " $DM $_DmDoneTitle" --msgbox "\n$DM $_DMDoneBody" 0 0
+         fi
+         
+         # Ensure DM option can only be run once where one has been installed.
+         DM_INSTALLED=1
+         
+   # if A display manager has already been installed and enabled (DM_INSTALLED=1), show a message instead.
+   else  
+         dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_DmInstTitle" --msgbox "$_DmInstBody" 0 0
+   fi       
+
+}
+
+install_nm() {
+   # Check to see if a NM has already been installed and enabled
+   if [[ $NM_INSTALLED -eq 0 ]]; then
+      dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_InstNMTitle" \
+      --menu "$_InstNMBody" 0 0 4 \
+ 	  "1" $"Connman (CLI)" \
+	  "2" $"dhcpcd  (CLI)" \
+	  "3" $"Network Manager (GUI)" \
+	  "4" $"WICD (GUI)" 2>${ANSWER}	
+	
+	  case $(cat ${ANSWER}) in
+      "1") # connman
+           clear
+           pacman -S connman --noconfirm 2>/tmp/.errlog
+           systemctl enable connman.service 2>>/tmp/.errlog
+           ;;
+      "2") # dhcpcd
+           clear
+           systemctl enable dhcpcd.service 2>/tmp/.errlog
+           ;;
+      "3") # Network Manager
+           clear
+           pacman -S networkmanager network-manager-applet rp-pppoe --noconfirm 2>/tmp/.errlog
+           systemctl enable NetworkManager.service && systemctl enable NetworkManager-dispatcher.service 2>>/tmp/.errlog
+           ;;
+      "4") # WICD
+           clear
+           pacman -S wicd-gtk --noconfirm 2>/tmp/.errlog
+           systemctl enable wicd.service 2>>/tmp/.errlog
+           ;;
+        *) install_desktop_menu
+           ;;
+      esac
+      
+      check_for_error
+      dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_InstNMDoneTitle" --msgbox "$_InstNMDoneBody" 0 0
+      NM_INSTALLED=1
+   
+   else
+      dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_InstNMDoneTitle" --msgbox "$_InstNMErrBody" 0 0
+   fi
+}
+
+
+test() {
+	
+	ping -c 3 google.com > /tmp/.outfile &
+    dialog --title "checking" --no-kill --tailboxbg /tmp/.outfile 20 60 
+
+}
+
+main_menu_online() {
+	
+	if [[ $HIGHLIGHT != 7 ]]; then
+	   HIGHLIGHT=$(( HIGHLIGHT + 1 ))
+	fi
+	
+    dialog --default-item ${HIGHLIGHT} --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_MMTitle" \
+    --menu "$_MMBody" 0 0 7 \
+ 	"1" "$_InstWirelessFirm" \
+	"2" "$_MMConfBse" \
+	"3" "$_MMConfUsr" \
+	"4" "$_MMInstDE" \
+    "5" "$_MMRunMkinit" \
+    "6" "$_SeeConfOpt" \
+	"7" "$_Done" 2>${ANSWER}
+
+    HIGHLIGHT=$(cat ${ANSWER})
+    
+    # Depending on the answer, first check whether partition(s) are mounted and whether base has been installed
+    if [[ $(cat ${ANSWER}) -eq 2 ]]; then
+       check_mount
+    fi
+
+    if [[ $(cat ${ANSWER}) -ge 3 ]] && [[ $(cat ${ANSWER}) -le 7 ]]; then
+       check_mount
+       check_base
+    fi
+    
+    case $(cat ${ANSWER}) in
+        "1") install_wireless_firmware
+             ;;
+        "2") config_base_menu
+             ;;
+        "3") config_user_menu
+             ;;            
+        "4") install_desktop_menu
+             ;;
+        "5") run_mkinitcpio
+             ;;
+        "6") edit_configs
+             ;;            
+          *) dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --yesno "$_CloseInstBody" 0 0
+          
+             if [[ $? -eq 0 ]]; then
+                umount_partitions
+                clear
+                exit 0
+             else
+                main_menu_online
+             fi
+             
+             ;;
+    esac
+    
+    main_menu_online 
+    
+}
+
+######################################################################
+##																	##
+##                        Execution     							##
+##																	##
+######################################################################
+select_language
+check_evo_requirements
+greeting
+
+	while true; do
+          main_menu_online      
+    done
