@@ -857,6 +857,7 @@ main_menu_online() {
     
     # Depending on the answer, first check whether partition(s) are mounted and whether base has been installed
     if [[ $(cat ${ANSWER}) -eq 2 ]]; then
+    check_for_error
     fi
 
     if [[ $(cat ${ANSWER}) -ge 3 ]] && [[ $(cat ${ANSWER}) -le 7 ]]; then
