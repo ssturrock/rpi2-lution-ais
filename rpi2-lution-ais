@@ -171,13 +171,14 @@ config_base_menu() {
 	   fi
 	fi
 
-    dialog --default-item ${HIGHLIGHT_SUB} --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_ConfBseTitle" --menu "$_ConfBseBody" 0 0 6 \
+    dialog --default-item ${HIGHLIGHT_SUB} --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_ConfBseTitle" --menu "$_ConfBseBody" 0 0 7 \
  	"1" "$_ConfBseHost" \
 	"2" "$_ConfBseTime" \
 	"3" "$_ConfBseHWC" \
 	"4" "$_ConfBseSysLoc" \
 	"5" "$_ConfBseVirtCon" \
-	"6" "$_Back" 2>${ANSWER}	
+        "6" "$_PrepKBLayout" \
+	"7" "$_Back" 2>${ANSWER}	
 	
 	HIGHLIGHT_SUB=$(cat ${ANSWER})
 	case $(cat ${ANSWER}) in
@@ -190,7 +191,9 @@ config_base_menu() {
         "4") set_locale
              ;;
         "5") set_keymap
-             ;;            
+             ;; 
+        "6") set_xkbmap 
+             ;;           
           *) main_menu_online
              ;;
     esac
