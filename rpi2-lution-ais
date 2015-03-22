@@ -1,9 +1,10 @@
 # !/bin/bash
 #
-# Lution-AIS installer (version 0.4.17b - 16th March 2015)
+# rpi2-lution-ais (version 0.1- 22nd March 2015)
 #
 # Written by Carl Duff for Evo/Lution Linux
-#
+# Modified for install on the Raspberry Pi 2 (ssturrock)
+# 
 # Some code has been used or adapted from the Arch Installation Script (AIS)
 # and Arch Ultimate Installer (AUI) written by helmuthdu, the Antergos 
 # CLI installer written by Alex Filgueira, and the Manjaro 0.8 installer
@@ -37,8 +38,6 @@ DM_INSTALLED=0       		# Has a display manager been installed?
 COMMON_INSTALLED=0   		# Has the common-packages option been taken?
 NM_INSTALLED=0       		# Has a network connection manager been installed and enabled?
 AXI_INSTALLED=0             # Have the ALSA, Xorg, and xf86-input packages been installed?
-EVOBOXFM=""           		# Which file manager has been selected for EvoBox?
-EVOBOXIB=""           		# Which Internet Browser has been selected for EvoBox?
 DM="n/a"              		# Which display manager has been installed?
 KEYMAP="us"          		# Virtual console keymap. Default is "us"
 XKBMAP="us"      	    	# X11 keyboard layout. Default is "us"
@@ -160,7 +159,7 @@ check_evo_requirements() {
 config_base_menu() {
 	
 	# Set the default PATH variable
-    arch_chroot "PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/bin/core_perl" 2>/tmp/.errlog
+    PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/bin/core_perl 2>/tmp/.errlog
 	check_for_error
 	
 	if [[ $SUB_MENU != "config_base_menu" ]]; then
@@ -207,10 +206,10 @@ set_hostname() {
    dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_HostNameTitle" --inputbox "$_HostNameBody" 0 0 "evo" 2>${ANSWER} || config_base_menu
    HOST_NAME=$(cat ${ANSWER})
 
-   echo "$HOST_NAME" > ${MOUNTPOINT}/etc/hostname 2>/tmp/.errlog
+   echo "$HOST_NAME" > /etc/hostname 2>/tmp/.errlog
    check_for_error
-   sed -i "/127.0.0.1/s/$/ ${HOST_NAME}/" ${MOUNTPOINT}/etc/hosts
-   sed -i "/::1/s/$/ ${HOST_NAME}/" ${MOUNTPOINT}/etc/hosts
+   sed -i "/127.0.0.1/s/$/ ${HOST_NAME}/" /etc/hosts
+   sed -i "/::1/s/$/ ${HOST_NAME}/" /etc/hosts
 }
 
 # Set Zone and Sub-Zone
@@ -235,7 +234,7 @@ set_timezone() {
      dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --yesno "$_TimeZQ ${ZONE}/${SUBZONE} ?" 0 0 
      
      if [[ $? -eq 0 ]]; then
-        arch_chroot "ln -s /usr/share/zoneinfo/${ZONE}/${SUBZONE} /etc/localtime" 2>/tmp/.errlog
+        ln -s /usr/share/zoneinfo/${ZONE}/${SUBZONE} /etc/localtime 2>/tmp/.errlog
         check_for_error
      else
         config_base_menu
@@ -250,9 +249,9 @@ set_hw_clock() {
 	"2" "$_HwLocal" 2>${ANSWER}	
 
     case $(cat ${ANSWER}) in
-        "1") arch_chroot "hwclock --systohc --utc"  2>/tmp/.errlog
+        "1") hwclock --systohc --utc" 2>/tmp/.errlog
              ;;
-        "2") arch_chroot "hwclock --systohc --localtime" 2>/tmp/.errlog
+        "2") hwclock --systohc --localtime 2>/tmp/.errlog
              ;;
           *) config_base_menu
              ;;
@@ -272,9 +271,9 @@ set_locale() {
   dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_LocateTitle" --menu "$_localeBody" 0 0 16 ${LOCALES} 2>${ANSWER} || config_base_menu 
   LOCALE=$(cat ${ANSWER})
   
-  echo "LANG=\"${LOCALE}\"" > ${MOUNTPOINT}/etc/locale.conf
-  sed -i "s/#${LOCALE}/${LOCALE}/" ${MOUNTPOINT}/etc/locale.gen 2>/tmp/.errlog
-  arch_chroot "locale-gen" >/dev/null 2>>/tmp/.errlog
+  echo "LANG=\"${LOCALE}\"" > /etc/locale.conf
+  sed -i "s/#${LOCALE}/${LOCALE}/" /etc/locale.gen 2>/tmp/.errlog
+  locale-gen >/dev/null 2>>/tmp/.errlog
   check_for_error
 }
 
@@ -289,7 +288,7 @@ set_keymap() {
     dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_KeymapTitle" \
     --menu "$_KeymapBody" 20 40 16 ${KEYMAPS} 2>${ANSWER} || config_base_menu
     KEYMAP=$(cat ${ANSWER})
-    echo "KEYMAP=$KEYMAP" > ${MOUNTPOINT}/etc/vconsole.conf 2>/tmp/.errlog
+    echo "KEYMAP=$KEYMAP" > /etc/vconsole.conf 2>/tmp/.errlog
     check_for_error
   }
 
@@ -403,7 +402,7 @@ set_root_password() {
     
     if [[ $PASSWD == $PASSWD2 ]]; then 
        echo -e "${PASSWD}\n${PASSWD}" > /tmp/.passwd
-       arch_chroot "passwd root" < /tmp/.passwd >/dev/null 2>/tmp/.errlog
+       passwd root < /tmp/.passwd >/dev/null 2>/tmp/.errlog
        rm /tmp/.passwd
        check_for_error
     else
@@ -447,10 +446,10 @@ create_new_user() {
         dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_NUsrSetTitle" --infobox "$_NUsrSetBody" 0 0
         sleep 2
         # Create the user, set password, then remove temporary password file
-        arch_chroot "useradd ${USER} -m -g users -G wheel,storage,power,network,video,audio,lp -s /bin/bash" 2>/tmp/.errlog
+        useradd ${USER} -m -g users -G wheel,storage,power,network,video,audio,lp -s /bin/bash 2>/tmp/.errlog
         check_for_error
         echo -e "${PASSWD}\n${PASSWD}" > /tmp/.passwd
-        arch_chroot "passwd ${USER}" < /tmp/.passwd >/dev/null 2>/tmp/.errlog
+        passwd ${USER} < /tmp/.passwd >/dev/null 2>/tmp/.errlog
         rm /tmp/.passwd
         check_for_error
         # Set up basic configuration files and permissions for user
@@ -512,7 +511,7 @@ install_alsa_xorg_input() {
      user_list=$(ls /home/ | sed "s/lost+found//")
 	 for i in ${user_list[@]}; do
 	     cp -f /etc/skel/.xinitrc /home/$i
-	     arch_chroot "chown -R ${i}:users /home/${i}"
+	     chown -R ${i}:users /home/${i}
      done
      
      AXI_INSTALLED=1
