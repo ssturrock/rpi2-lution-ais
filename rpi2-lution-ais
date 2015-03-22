@@ -1,3 +1,4 @@
+
 # !/bin/bash
 #
 # rpi2-lution-ais (version 0.1 - 22nd March 2015)
@@ -136,13 +137,13 @@ check_evo_requirements() {
   
   if [[ `whoami` != "root" ]]; then
      dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_RtFailTitle" --infobox "$_RtFailBody" 0 0
-     sleep 2
      exit 1
   fi
   
   if [[ ! $(ping -c 1 google.com) ]]; then
      dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --title "$_ConFailTitle" --infobox "$_ConFailBody" 0 0
-     sleep 2
+     rm '/etc/systemd/system/getty@tty1.service.d/override.conf'
+     echo "" > /root/.bash_profile
      exit 1
   fi
   
@@ -822,6 +823,13 @@ install_nm() {
    fi
 }
 
+run_reboot() {
+	
+  clear
+  reboot
+ 
+}
+
 
 test() {
 	
@@ -853,9 +861,8 @@ main_menu_online() {
 	"2" "$_MMConfBse" \
 	"3" "$_MMConfUsr" \
 	"4" "$_MMInstDE" \
-    "5" "$_MMRunMkinit" \
-    "6" "$_SeeConfOpt" \
-	"7" "$_Done" 2>${ANSWER}
+        "5" "$_MMReboot" \
+    	"6" "$_Done" 2>${ANSWER}
 
     HIGHLIGHT=$(cat ${ANSWER})
     
@@ -864,7 +871,7 @@ main_menu_online() {
     check_for_error
     fi
 
-    if [[ $(cat ${ANSWER}) -ge 3 ]] && [[ $(cat ${ANSWER}) -le 7 ]]; then
+    if [[ $(cat ${ANSWER}) -ge 3 ]] && [[ $(cat ${ANSWER}) -le 6 ]]; then
        check_base
     fi
     
@@ -877,10 +884,8 @@ main_menu_online() {
              ;;            
         "4") install_desktop_menu
              ;;
-        "5") run_mkinitcpio
-             ;;
-        "6") edit_configs
-             ;;            
+        "5") run_reboot
+             ;;    
           *) dialog --backtitle "$VERSION - $SYSTEM ($ARCHI)" --yesno "$_CloseInstBody" 0 0
           
              if [[ $? -eq 0 ]]; then

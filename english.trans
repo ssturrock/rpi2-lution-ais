@@ -447,7 +447,7 @@ _MMInstBse="Install Base"
 _MMConfBse="Configure Base"
 _MMConfUsr="Configure User Account(s)"
 _MMInstDE="Install Desktop(s)"
-_MMRunMkinit="Run Mkinitcpio"
+_MMReboot="Reboot"
 _Done="Done"
 
 # Close Installer
