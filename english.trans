@@ -166,6 +166,16 @@ _PrepBody="\nThe desktop keyboard layout will be used for both the installer and
 _PrepKBLayout="Set Desktop Keyboard Layout"
 _Back="Back"
 
+# Configure Base Menu
+_ConfBseTitle=" Configure Base"
+_ConfBseBody="\nBasic configuration of the base is required. This includes setting basic networking, time, language, and keyboard defaults for the installed system."
+_ConfBseFstab="Generate FSTAB"
+_ConfBseHost="Set Hostname"
+_ConfBseTime="Set Timezone"
+_ConfBseHWC="Set Hardware Clock"
+_ConfBseSysLoc="Set System Locale"
+_ConfBseVirtCon="Set Virtual Console"
+
 # User Menu
 _ConfUsrTitle=" Configure User(s)"
 _ConfUsrBody="\nRoot is the default 'super-user' or 'admin' account. The same password can be set for both Root and any personal user accounts created."
